@@ -100,7 +100,7 @@ putSpaces (c:x) = [c] ++ "  " ++ putSpaces x
 
 
 randomGrid :: StdGen -> SlotMachine -> (String, StdGen)
-randomGrid gen slot = generateRandomGrid 20 "" gen normalizedSlots
+randomGrid gen slot = generateRandomGrid 15 "" gen normalizedSlots
  where
     normalizedSlots = normalizeSymbols (symbols slot)
 
@@ -181,7 +181,7 @@ testBet :: Bool
 
 testNormalize = [] == result
     where
-        result = filter (\((ok, ov), (ek, ev)) -> and [ok == ek, abs(ov-ev) < 0.000001]) $ zip obtained expected
+        result = filter (\((ok, ov), (ek, ev)) -> and [ok == ek, abs(ov-ev) > 0.000001]) $ zip obtained expected
         obtained = normalizeSymbols (zip "9JQKA7%$#!" [10, 8, 5, 5, 5, 3, 3, 2, 2, 1.0])
         expected = [
                 ('9',0.22727272727272727), ('J',0.18181818181818182), ('Q',0.11363636363636363),

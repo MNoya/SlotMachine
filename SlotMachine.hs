@@ -2,6 +2,10 @@ module SlotMachine(SlotMachine, normalizeSymbols, randomGrid, lines2Indexes, mat
 import Prelude hiding (lines)
 import System.Random
 
+import Data.Time.Clock
+import Data.Time.Clock.POSIX
+import Data.List hiding (lines)
+
 data SlotMachine = SlotMachine {
         symbols :: [(Char, Double)],
         wildcards :: [(Char, String)], 
@@ -39,6 +43,12 @@ slotMachine1 = SlotMachine {
 Reusable code should be here.
 -}
 
+randomN :: StdGen -> Int -> (Int,StdGen)
+randomN gen n = randomR (1,n) gen :: (Int,StdGen)
+
+intTime :: IO Int
+intTime = round `fmap` getPOSIXTime 
+
 -- uncurry3 used on testing
 uncurry3 :: (a -> b -> c -> d) -> (a, b, c) -> d
 uncurry3 f = \(x, y, z) -> f x y z
@@ -72,8 +82,35 @@ sumSymbols ((_,value):list) = value + sumSymbols list
 
 ----------------------------------------------------------------------------------
 
+prettyGrid :: StdGen -> SlotMachine -> IO ()
+prettyGrid gen slots = putStr grid
+ where
+    grid = topline ++ (firstLine ++ secondLine ++ thirdLine) ++ bottomLine
+    topline     = "    +--------------+\n"
+    firstLine   = "    |  " ++ putSpaces (take 4 newGrid) ++ "|\n"
+    secondLine  = "    |  " ++ putSpaces (take 4 $ drop 4 $ newGrid) ++ "|\n"
+    thirdLine   = "    |  " ++ putSpaces (take 4 $ drop 8 $ newGrid) ++ "|\n"
+    bottomLine  = "    +--------------+\n"
+    (newGrid, next_gen) = randomGrid gen slots
+
+putSpaces :: String -> String
+putSpaces [] = ""
+putSpaces (c:x) = [c] ++ "  " ++ putSpaces x
+
+
 randomGrid :: StdGen -> SlotMachine -> (String, StdGen)
-randomGrid gen slot = (randomSymbol gen (symbols slot), gen)
+randomGrid gen slot = generateRandomGrid 16 "" gen normalizedSlots
+ where
+    normalizedSlots = normalizeSymbols (symbols slot)
+
+-- Generates a character chain of random symbols
+generateRandomGrid :: Int -> String -> StdGen -> [(Char, Double)] -> (String, StdGen)
+generateRandomGrid len chain gen slots
+    | length chain == len = (chain, gen)
+    | otherwise = (chain ++ next_chain ++ rem_chain, next_gen)
+    where
+        (rem_chain, _) = generateRandomGrid (len-1) "" next_gen slots
+        (next_chain, next_gen) = randomSymbol gen slots
 
 {-
 Recives the normalizeSymbols list, the sum of all the second terms is equal to 1 (100% getting a symbol)
@@ -82,21 +119,20 @@ Rolls cumulative probability between 0 and 1 and returns the corresponding symbo
 randomSymbol (mkStdGen 100) (normalizeSymbols (zip "9JQKA7%$#!" [10, 8, 5, 5, 5,  3, 3, 2, 2, 1.0]))
 randomSymbol (mkStdGen 100) [('9',0.5),('3',0.5)]
 -} 
-randomSymbol :: StdGen -> [(Char, Double)] -> String
-randomSymbol _ [] = ""
-randomSymbol _ ((c,value):[]) = [c]
+randomSymbol :: StdGen -> [(Char, Double)] -> (String, StdGen)
+randomSymbol gen [] = ("", gen)
+randomSymbol gen ((c,value):[]) = ([c], gen)
 randomSymbol gen ((c,value):(next_c,next_value):list)
-    | rollSymbol gen (c,value) = [c]
-    | otherwise    = randomSymbol gen ((next_c, value + next_value):list) --Accumulate probability for next roll
+    | success    = ([c], next_gen) 
+    | otherwise  = randomSymbol gen ((next_c, value + next_value):list) -- Accumulate probability for next roll using the same gen
+    where
+        (success, next_gen) = rollSymbol gen (c,value)
 
 -- Rolls a particular symbol's probability (between 0~1)
-rollSymbol :: StdGen -> (Char,Double) -> Bool
-rollSymbol gen (c, value) = value > roll
+rollSymbol :: StdGen -> (Char,Double) -> (Bool, StdGen)
+rollSymbol gen (c, value) = (value > roll, next_gen)
  where
-    (roll, g2) = randomR (0,1) gen :: (Double,StdGen)
-
-randomN :: StdGen -> Int -> (Int,StdGen)
-randomN gen n = randomR (1,n) gen :: (Int,StdGen)
+    (roll, next_gen) = randomR (0,1) gen :: (Double,StdGen)
 
 ----------------------------------------------------------------------------------
 

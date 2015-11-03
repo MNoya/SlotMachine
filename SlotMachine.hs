@@ -86,11 +86,11 @@ prettyGrid :: StdGen -> SlotMachine -> IO ()
 prettyGrid gen slots = putStr grid
  where
     grid = topline ++ (firstLine ++ secondLine ++ thirdLine) ++ bottomLine
-    topline     = "    +--------------+\n"
-    firstLine   = "    |  " ++ putSpaces (take 4 newGrid) ++ "|\n"
-    secondLine  = "    |  " ++ putSpaces (take 4 $ drop 4 $ newGrid) ++ "|\n"
-    thirdLine   = "    |  " ++ putSpaces (take 4 $ drop 8 $ newGrid) ++ "|\n"
-    bottomLine  = "    +--------------+\n"
+    topline     = "    +-----------------+\n"
+    firstLine   = "    |  " ++ putSpaces (take 5 newGrid) ++ "|\n"
+    secondLine  = "    |  " ++ putSpaces (take 5 $ drop 5 $ newGrid) ++ "|\n"
+    thirdLine   = "    |  " ++ putSpaces (take 5 $ drop 10 $ newGrid) ++ "|\n"
+    bottomLine  = "    +-----------------+\n"
     (newGrid, next_gen) = randomGrid gen slots
 
 putSpaces :: String -> String
@@ -99,7 +99,7 @@ putSpaces (c:x) = [c] ++ "  " ++ putSpaces x
 
 
 randomGrid :: StdGen -> SlotMachine -> (String, StdGen)
-randomGrid gen slot = generateRandomGrid 16 "" gen normalizedSlots
+randomGrid gen slot = generateRandomGrid 20 "" gen normalizedSlots
  where
     normalizedSlots = normalizeSymbols (symbols slot)
 

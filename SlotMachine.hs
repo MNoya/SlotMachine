@@ -144,10 +144,24 @@ lines2Indexes (x:xs) = ((line2Index x):(lines2Indexes xs))
 line2Index :: String -> [Int]
 line2Index s = [ ord(x)-65 | x <- s]
 
-matchesPattern :: SlotMachine -> String -> String -> Bool
--- TODO: your code here!
-matchesPattern _ _ _ = False -- Not Implemented Yet!
+----------------------------------------------------------------------------------
 
+matchesPattern :: SlotMachine -> String -> String -> Bool
+matchesPattern _ _ "" = True
+matchesPattern slot (a:as) (b:bs)
+    | wildMatch (wildcards slot) a b = matchesPattern slot as bs
+    | otherwise = False
+
+wildMatch :: [(Char, String)] -> Char -> Char -> Bool
+wildMatch [] _ _ = False
+wildMatch ((wildcard, chain):list) c1 c2
+    | c1 == c2  = True
+    | matchW    = True
+    | otherwise = wildMatch list c1 c2
+    where
+        matchW = c1 == wildcard && elem c2 chain
+
+----------------------------------------------------------------------------------
 
 betResult :: SlotMachine -> String -> Int -> Int -> Int
 -- TODO: your code here!

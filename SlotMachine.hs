@@ -5,6 +5,7 @@ import System.Random
 import Data.Time.Clock
 import Data.Time.Clock.POSIX
 import Data.List hiding (lines)
+import Data.Char (ord)
 
 data SlotMachine = SlotMachine {
         symbols :: [(Char, Double)],
@@ -137,9 +138,11 @@ rollSymbol gen (c, value) = (value > roll, next_gen)
 ----------------------------------------------------------------------------------
 
 lines2Indexes :: [String] -> [[Int]]
--- TODO: your code here!
-lines2Indexes _ = [] -- Not Implemented Yet!
+lines2Indexes [] = []
+lines2Indexes (x:xs) = ((line2Index x):(lines2Indexes xs))
 
+line2Index :: String -> [Int]
+line2Index s = [ ord(x)-65 | x <- s]
 
 matchesPattern :: SlotMachine -> String -> String -> Bool
 -- TODO: your code here!

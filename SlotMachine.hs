@@ -44,6 +44,9 @@ slotMachine1 = SlotMachine {
 Reusable code should be here.
 -}
 
+sortDesc :: [Int] -> [Int]
+sortDesc = reverse . sort
+
 randomN :: StdGen -> Int -> (Int,StdGen)
 randomN gen n = randomR (1,n) gen :: (Int,StdGen)
 
@@ -98,7 +101,6 @@ putSpaces :: String -> String
 putSpaces [] = ""
 putSpaces (c:x) = [c] ++ "  " ++ putSpaces x
 
-
 randomGrid :: StdGen -> SlotMachine -> (String, StdGen)
 randomGrid gen slot = generateRandomGrid 15 "" gen normalizedSlots
  where
@@ -147,7 +149,7 @@ line2Index s = [ ord(x)-65 | x <- s]
 ----------------------------------------------------------------------------------
 
 matchesPattern :: SlotMachine -> String -> String -> Bool
-matchesPattern _ _ "" = True
+matchesPattern _ _"" = True
 matchesPattern slot (a:as) (b:bs)
     | wildMatch (wildcards slot) a b = matchesPattern slot as bs
     | otherwise = False
@@ -164,9 +166,51 @@ wildMatch ((wildcard, chain):list) c1 c2
 ----------------------------------------------------------------------------------
 
 betResult :: SlotMachine -> String -> Int -> Int -> Int
--- TODO: your code here!
-betResult _ _ _ _ = 0 -- Not Implemented Yet!
+betResult slot grid numLines gamble = payment - (gamble * numLines)
+ where
+    payment = (betPayment slot grid numLines) * gamble
 
+-- Sums all the payments possible given the num of lines gambled
+betPayment :: SlotMachine -> String -> Int -> Int
+betPayment slot grid numLines = sum $ take numLines $ allPayments slot grid
+
+-- Returns a list with all the payments on the grid, sorted by max value first
+allPayments :: SlotMachine -> String -> [Int]
+allPayments slot grid = sortDesc $ getPayments slot allLines
+ where
+    allLines = getAllLines grid indexes
+    indexes = lines2Indexes (lines slot)
+
+getPayments :: SlotMachine -> [String] -> [Int]
+getPayments _ [] = []
+getPayments slot (line:other_lines)
+    | gotMatch  = [payment] ++ getPayments slot other_lines
+    | otherwise = getPayments slot other_lines
+    where
+        patterns = (pays slot) --ordenados por payment
+        (gotMatch, payment) = matchesAnyPattern slot patterns line 
+
+-- Returns wether the string matches any of the paying patterns
+matchesAnyPattern :: SlotMachine -> [(String,Double)] -> String -> (Bool, Int)
+matchesAnyPattern _ [] _ = (False, 0)
+matchesAnyPattern slot patterns line
+    | matchesPattern slot line pattern = (True, floor value)
+    | otherwise = matchesAnyPattern slot pList line
+    where
+        (pattern, value) = head patterns
+        pList = tail patterns
+
+{- Returns all the lines of a particular grid
+getAllLines "AAK9!%7A7Q%%J7K" (lines2Indexes ["FGHIJ", "ABCDE", "KLMNO", "AGMIE", "KGCIO", "FBCDJ", "FLMNJ", "ABHNO", "KLHDE", "FLHDJ", "FBHNJ", "AGHIE", "KGHIO", "AGCIE", "KGMIO", "FGCIJ", "FGMIJ", "ABMDE", "KLCNO", "ALMNE"])
+-}
+getAllLines :: String -> [[Int]] -> [String]
+getAllLines _ [] = []
+getAllLines grid (index:indexedList) = [(indexToLine grid index)] ++ (getAllLines grid indexedList)
+
+-- Returns a line on the slot from a grid
+indexToLine :: String -> [Int] -> String
+indexToLine grid [] = ""
+indexToLine grid (i:ix) = [ grid !! i ] ++ (indexToLine grid ix)
 
 {- Testing and Verification ------------------------------------------------------------------------
 

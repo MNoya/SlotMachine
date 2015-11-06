@@ -6,6 +6,7 @@ import Data.Time.Clock
 import Data.Time.Clock.POSIX
 import Data.List hiding (lines)
 import Data.Char (ord)
+import Data.Function (on)
 
 data SlotMachine = SlotMachine {
         symbols :: [(Char, Double)],
@@ -172,7 +173,10 @@ betResult slot grid numLines gamble = payment - (gamble * numLines)
 
 -- Sums all the payments possible given the num of lines gambled
 betPayment :: SlotMachine -> String -> Int -> Int
-betPayment slot grid numLines = sum $ take numLines $ allPayments slot grid
+betPayment slot grid numLines = ( sum $ take numLines $ allPayments slot grid )
+ where
+    spreadPay = getSpreadPayment spreadList grid
+    spreadList = orderSpreads (spreads slot)
 
 -- Returns a list with all the payments on the grid, sorted by max value first
 allPayments :: SlotMachine -> String -> [Int]
@@ -187,8 +191,22 @@ getPayments slot (line:other_lines)
     | gotMatch  = [payment] ++ getPayments slot other_lines
     | otherwise = getPayments slot other_lines
     where
-        patterns = (pays slot) --ordenados por payment
+        patterns = orderPayments (pays slot)
         (gotMatch, payment) = matchesAnyPattern slot patterns line 
+
+getSpreadPayment :: [(Char,Int,Double)] -> String -> Int
+getSpreadPayment [] _ = 0
+getSpreadPayment spreadList grid
+    | match = floor value
+    | otherwise = getSpreadPayment sList grid
+    where
+        (spread, num, value) = head spreadList
+        sList = tail spreadList
+        match = ocurrences >= num
+        ocurrences = countOccurrences grid spread
+
+countOccurrences :: String -> Char -> Int
+countOccurrences str c = length $ filter (== c) str
 
 -- Returns wether the string matches any of the paying patterns
 matchesAnyPattern :: SlotMachine -> [(String,Double)] -> String -> (Bool, Int)
@@ -199,6 +217,15 @@ matchesAnyPattern slot patterns line
     where
         (pattern, value) = head patterns
         pList = tail patterns
+
+orderPayments :: [(String,Double)] -> [(String,Double)]
+orderPayments list = reverse $ sortBy (compare `on` snd) list
+
+orderSpreads :: [(Char,Int,Double)] -> [(Char,Int,Double)]
+orderSpreads list = reverse $ sortBy (compare `on` third) list
+
+third :: (a,b,c) -> c
+third (a,b,c) = c
 
 {- Returns all the lines of a particular grid
 getAllLines "AAK9!%7A7Q%%J7K" (lines2Indexes ["FGHIJ", "ABCDE", "KLMNO", "AGMIE", "KGCIO", "FBCDJ", "FLMNJ", "ABHNO", "KLHDE", "FLHDJ", "FBHNJ", "AGHIE", "KGHIO", "AGCIE", "KGMIO", "FGCIJ", "FGMIJ", "ABMDE", "KLCNO", "ALMNE"])

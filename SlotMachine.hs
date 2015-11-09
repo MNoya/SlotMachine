@@ -111,7 +111,7 @@ randomGrid gen slot = generate 15 gen
     generate n g = 
         let (sym, g') = randomSymbol g normalizedSlots
             (chain, g'') = generate (n-1) g'
-        in (sym ++ chain, g'') 
+        in (sym : chain, g'') 
 
 {-
 Recives the normalizeSymbols list, the sum of all the second terms is equal to 1 (100% getting a symbol)
@@ -120,14 +120,16 @@ Rolls cumulative probability between 0 and 1 and returns the corresponding symbo
 randomSymbol (mkStdGen 100) (normalizeSymbols (zip "9JQKA7%$#!" [10, 8, 5, 5, 5,  3, 3, 2, 2, 1.0]))
 randomSymbol (mkStdGen 100) [('9',0.5),('3',0.5)]
 -} 
-randomSymbol :: StdGen -> [(Char, Double)] -> (String, StdGen)
-randomSymbol gen [] = ("", gen)
-randomSymbol gen ((c,value):[]) = ([c], gen)
-randomSymbol gen ((c,value):(next_c,next_value):list)
-    | success    = ([c], next_gen) 
-    | otherwise  = randomSymbol gen ((next_c, value + next_value):list) -- Accumulate probability for next roll using the same gen
+randomSymbol :: StdGen -> [(Char, Double)] -> (Char, StdGen)
+randomSymbol gen ls = randomSymbol' 0 gen ls
     where
-        (success, next_gen) = rollSymbol gen (c,value)
+        randomSymbol' _ _ [] = error "randomSymbol: no successful roll"
+        randomSymbol' p g ((c,value):next)
+            | success   = (c, g')
+            | otherwise = randomSymbol' p' g' next
+            where
+                (success, g') = rollSymbol g (c, p')
+                p' = p + value
 
 -- Rolls a particular symbol's probability (between 0~1)
 rollSymbol :: StdGen -> (Char,Double) -> (Bool, StdGen)

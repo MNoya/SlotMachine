@@ -108,7 +108,7 @@ randomGrid gen slot = generate 15 gen
     normalizedSlots = normalizeSymbols (symbols slot)
     
     generate 0 g = ([], g)
-    generate n g = (sym ++ chain, g') 
+    generate n g = (sym ++ chain, g'') 
         where
             (sym, g') = randomSymbol g normalizedSlots
             (chain, g'') = generate (n-1) g'

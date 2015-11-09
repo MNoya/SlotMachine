@@ -15,18 +15,19 @@ data SlotMachine = SlotMachine {
         pays :: [(String, Double)],
         spreads :: [(Char, Int, Double)],
         gambles :: [Int],
-        modes :: [Int]}
+        modes :: [Int]
+}
 
 -- Examples for testing ----------------------------------------------------------------------------
 slotMachine1 = SlotMachine {
-    symbols = zip "9JQKA7%$#!" [10, 8, 5, 5, 5, 3, 3, 2, 2, 1.0], -- [(Char, Double)]
+    symbols = zip "9JQKA7%$#!" [10, 8, 5, 5, 5, 3, 3, 2, 2, 1], -- [(Char, Double)]
     wildcards = [ ('!', "90JQKA7%$") ], -- [(Char, String)]
     lines = [ -- [String]
         "FGHIJ", "ABCDE", "KLMNO", "AGMIE", "KGCIO", "FBCDJ", "FLMNJ", "ABHNO", "KLHDE", "FLHDJ",
         "FBHNJ", "AGHIE", "KGHIO", "AGCIE", "KGMIO", "FGCIJ", "FGMIJ", "ABMDE", "KLCNO", "ALMNE"
     ],
     pays = [ -- [(String, Double)]
-        ("999", 4.0), ("9999", 10), ("99999", 50),
+        ("999", 4), ("9999", 10), ("99999", 50),
         ("JJJ", 5), ("JJJJ", 15), ("JJJJJ", 65),
         ("QQQ", 6), ("QQQQ", 20), ("QQQQQ", 75),
         ("KKK", 7), ("KKKK", 25), ("KKKKK", 100),
@@ -35,7 +36,7 @@ slotMachine1 = SlotMachine {
         ("%%%%", 40), ("%%%%%", 150),
         ("$$", 2), ("$$$", 20), ("$$$$", 200), ("$$$$$", 1000)
     ],
-    spreads = [ ('#', 3, 50.0), ('#', 4, 100) ], -- [(Char, Int, Double)]
+    spreads = [ ('#', 3, 50), ('#', 4, 100) ], -- [(Char, Int, Double)]
     gambles = [1, 2, 5, 10, 20], -- [Int]
     modes = [1, 3, 5, 10, 20] -- [Int]
 }
@@ -82,8 +83,7 @@ normalizeSymbols list = [ (x,y/s) | (x,y) <- list ]
  where s = sumSymbols list
 
 sumSymbols :: [(Char, Double)] -> Double
-sumSymbols [] = 0
-sumSymbols ((_,value):list) = value + sumSymbols list
+sumSymbols = sum . map snd
 
 ----------------------------------------------------------------------------------
 
@@ -99,22 +99,19 @@ prettyGrid gen slots = putStr grid
     (newGrid, next_gen) = randomGrid gen slots
 
 putSpaces :: String -> String
-putSpaces [] = ""
-putSpaces (c:x) = [c] ++ "  " ++ putSpaces x
+putSpaces = concatMap (: "  ")
 
 randomGrid :: StdGen -> SlotMachine -> (String, StdGen)
-randomGrid gen slot = generateRandomGrid 15 "" gen normalizedSlots
+randomGrid gen slot = generate 15 gen
  where
+    
     normalizedSlots = normalizeSymbols (symbols slot)
-
--- Generates a character chain of random symbols
-generateRandomGrid :: Int -> String -> StdGen -> [(Char, Double)] -> (String, StdGen)
-generateRandomGrid len chain gen slots
-    | length chain == len = (chain, gen)
-    | otherwise = (chain ++ next_chain ++ rem_chain, next_gen)
-    where
-        (rem_chain, _) = generateRandomGrid (len-1) "" next_gen slots
-        (next_chain, next_gen) = randomSymbol gen slots
+    
+    generate 0 g = ([], g)
+    generate n g = (sym ++ chain, g') 
+        where
+            (sym, g') = randomSymbol g normalizedSlots
+            (chain, g'') = generate (n-1) g'
 
 {-
 Recives the normalizeSymbols list, the sum of all the second terms is equal to 1 (100% getting a symbol)
@@ -284,7 +281,7 @@ testMatches = result == []
 
 testBet = result == []
     where
-        result = filter (\(o,e) -> o /= e) $ zip obtained expected
+        result = filter (uncurry (/=)) $ zip obtained expected
         obtained = map (uncurry3 (betResult slotMachine1)) $ [ 
                 ("AAK9!%7A7Q%%J7K", 5, 1), ("AAK9!%7A7Q%%J7K", 10, 2), ("AAK9!%7A7Q%%J7K", 20, 2), ("AAK9!%7A7Q%%J7K", 20, 10),
                 ("!77#Q7AAK##$AQQ", 1, 1), ("!77#Q7AAK##$AQQ", 5, 10), ("!77#Q7AAK##$AQQ", 10, 1), ("!77#Q7AAK##$AQQ", 20, 1), 
@@ -295,18 +292,11 @@ testBet = result == []
 -- Main --------------------------------------------------------------------------------------------
 
 main = do
-    {
-        putStrLn "Simple Test Verification!";
-        putStrLn "=========================";
-        
-        byLine$ map (\(b, l) -> 
-            (if (b) 
-                then putStrLn ("OK. "++ l ++ " Passed!")
-                else putStrLn ("*** Test FAILED *** " ++ l)
-            )) $ zip [testNormalize, testRandom, testIndexes, testMatches, testBet] ["testNormalize", "testRandom", "testIndexes", "testMatches", "testBet"];
-
-        putStrLn "=========================";
-    }
+    putStrLn "Simple Test Verification!";
+    putStrLn "=========================";
+    mapM_ runTest $ zip [testNormalize, testRandom, testIndexes, testMatches, testBet] ["testNormalize", "testRandom", "testIndexes", "testMatches", "testBet"]
+    putStrLn "=========================";
     where
-        byLine [] = do { return () ; }
-        byLine (l:ls) = do { l; byLine ls }
+        runTest (b, l)
+            | b         = putStrLn ("OK. "++ l ++ " Passed!")
+            | otherwise = putStrLn ("*** Test FAILED *** " ++ l) 

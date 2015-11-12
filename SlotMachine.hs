@@ -82,61 +82,51 @@ normalizeSymbols list = [ (x,y/s) | (x,y) <- list ]
  where s = sumSymbols list
 
 sumSymbols :: [(Char, Double)] -> Double
-sumSymbols [] = 0
-sumSymbols ((_,value):list) = value + sumSymbols list
+sumSymbols = sum . map snd
 
 ----------------------------------------------------------------------------------
 
-prettyGrid :: StdGen -> SlotMachine -> IO ()
-prettyGrid gen slots = putStr grid
+prettyGrid grid = putStr ggrid
  where
-    grid = topline ++ (firstLine ++ secondLine ++ thirdLine) ++ bottomLine
+    ggrid = topline ++ (firstLine ++ secondLine ++ thirdLine) ++ bottomLine
     topline     = "    +-----------------+\n"
-    firstLine   = "    |  " ++ putSpaces (take 5 newGrid) ++ "|\n"
-    secondLine  = "    |  " ++ putSpaces (take 5 $ drop 5 $ newGrid) ++ "|\n"
-    thirdLine   = "    |  " ++ putSpaces (take 5 $ drop 10 $ newGrid) ++ "|\n"
+    firstLine   = "    |  " ++ putSpaces (take 5 grid) ++ "|\n"
+    secondLine  = "    |  " ++ putSpaces (take 5 $ drop 5 $ grid) ++ "|\n"
+    thirdLine   = "    |  " ++ putSpaces (drop 10 $ grid) ++ "|\n"
     bottomLine  = "    +-----------------+\n"
-    (newGrid, next_gen) = randomGrid gen slots
 
 putSpaces :: String -> String
 putSpaces [] = ""
 putSpaces (c:x) = [c] ++ "  " ++ putSpaces x
 
 randomGrid :: StdGen -> SlotMachine -> (String, StdGen)
-randomGrid gen slot = generateRandomGrid 15 "" gen normalizedSlots
+randomGrid gen slot = generateRandomGrid 15 gen normalizedSlots
  where
     normalizedSlots = normalizeSymbols (symbols slot)
 
 -- Generates a character chain of random symbols
-generateRandomGrid :: Int -> String -> StdGen -> [(Char, Double)] -> (String, StdGen)
-generateRandomGrid len chain gen slots
-    | length chain == len = (chain, gen)
-    | otherwise = (chain ++ next_chain ++ rem_chain, next_gen)
+generateRandomGrid :: Int -> StdGen -> [(Char, Double)] -> (String, StdGen)
+generateRandomGrid len gen normalizedSlots
+    | len == 0 = ("", gen)
+    | otherwise = (chain ++ next_chain, next_gen)
     where
-        (rem_chain, _) = generateRandomGrid (len-1) "" next_gen slots
-        (next_chain, next_gen) = randomSymbol gen slots
+        (next_chain, _) = generateRandomGrid (len-1) next_gen normalizedSlots
+        chain = randomSymbol randRoll normalizedSlots
+        (randRoll, next_gen) = rollSymbol gen
 
 {-
-Recives the normalizeSymbols list, the sum of all the second terms is equal to 1 (100% getting a symbol)
-Rolls cumulative probability between 0 and 1 and returns the corresponding symbol for that number
-
-randomSymbol (mkStdGen 100) (normalizeSymbols (zip "9JQKA7%$#!" [10, 8, 5, 5, 5,  3, 3, 2, 2, 1.0]))
-randomSymbol (mkStdGen 100) [('9',0.5),('3',0.5)]
+Recives a roll for a symbol and the normalizeSymbols list
+Returns the symbol up to the roll
 -} 
-randomSymbol :: StdGen -> [(Char, Double)] -> (String, StdGen)
-randomSymbol gen [] = ("", gen)
-randomSymbol gen ((c,value):[]) = ([c], gen)
-randomSymbol gen ((c,value):(next_c,next_value):list)
-    | success    = ([c], next_gen) 
-    | otherwise  = randomSymbol gen ((next_c, value + next_value):list) -- Accumulate probability for next roll using the same gen
+randomSymbol :: Double -> [(Char, Double)] -> String
+randomSymbol roll normalizedSlots
+    | value > roll = [symb]
+    | otherwise    = randomSymbol (roll-value) (tail normalizedSlots)
     where
-        (success, next_gen) = rollSymbol gen (c,value)
+        (symb, value) = head normalizedSlots
 
--- Rolls a particular symbol's probability (between 0~1)
-rollSymbol :: StdGen -> (Char,Double) -> (Bool, StdGen)
-rollSymbol gen (c, value) = (value > roll, next_gen)
- where
-    (roll, next_gen) = randomR (0,1) gen :: (Double,StdGen)
+rollSymbol :: StdGen -> (Double,StdGen)
+rollSymbol gen = randomR (0,1) gen :: (Double,StdGen)
 
 ----------------------------------------------------------------------------------
 
@@ -171,18 +161,18 @@ betResult slot grid numLines gamble = payment - (gamble * numLines)
  where
     payment = (betPayment slot grid numLines) * gamble
 
--- Sums all the payments possible given the num of lines gambled
+-- Sums all the possible payments
 betPayment :: SlotMachine -> String -> Int -> Int
-betPayment slot grid numLines = ( sum $ take numLines $ allPayments slot grid )
+betPayment slot grid numLines = spreadPay + ( sum $ allPayments slot grid numLines )
  where
     spreadPay = getSpreadPayment spreadList grid
     spreadList = orderSpreads (spreads slot)
 
 -- Returns a list with all the payments on the grid, sorted by max value first
-allPayments :: SlotMachine -> String -> [Int]
-allPayments slot grid = sortDesc $ getPayments slot allLines
+allPayments :: SlotMachine -> String -> Int -> [Int]
+allPayments slot grid numLines = sortDesc $ getPayments slot allLines
  where
-    allLines = getAllLines grid indexes
+    allLines = take numLines $ getAllLines grid indexes
     indexes = lines2Indexes (lines slot)
 
 getPayments :: SlotMachine -> [String] -> [Int]
@@ -290,7 +280,17 @@ testBet = result == []
                 ("!77#Q7AAK##$AQQ", 1, 1), ("!77#Q7AAK##$AQQ", 5, 10), ("!77#Q7AAK##$AQQ", 10, 1), ("!77#Q7AAK##$AQQ", 20, 1), 
                 ("!77#Q7AAK##$AQQ", 20, 20) 
             ]
-        expected = [-5, 0, -20, -200, 49, 600, 80, 80, 1600]
+        expected = [-5, 0, -20, -100, 49, 700, 80, 82, 1640]
+
+testBet2 = result
+    where
+        result = filter (\(o,e) -> o /= e) $ zip obtained expected
+        obtained = map (uncurry3 (betResult slotMachine1)) $ [ 
+                ("AAK9!%7A7Q%%J7K", 5, 1), ("AAK9!%7A7Q%%J7K", 10, 2), ("AAK9!%7A7Q%%J7K", 20, 2), ("AAK9!%7A7Q%%J7K", 20, 10),
+                ("!77#Q7AAK##$AQQ", 1, 1), ("!77#Q7AAK##$AQQ", 5, 10), ("!77#Q7AAK##$AQQ", 10, 1), ("!77#Q7AAK##$AQQ", 20, 1), 
+                ("!77#Q7AAK##$AQQ", 20, 20) 
+            ]
+        expected = [-5, 0, -20, -100, 49, 700, 80, 82, 1640]
         
 -- Main --------------------------------------------------------------------------------------------
 
@@ -310,3 +310,19 @@ main = do
     where
         byLine [] = do { return () ; }
         byLine (l:ls) = do { l; byLine ls }
+
+play machine gen money = do
+{
+    putStrLn "=========================";
+    putStr "Lineas: ";
+    lineas <- (readLn :: IO Int);
+    putStr "Apuesta por linea: ";
+    bet <- (readLn :: IO Int);
+    let (grid, gen2) = randomGrid gen machine in do {
+       prettyGrid grid;
+       let money2 = money + (betResult machine grid lineas bet) in do {
+          putStrLn ("Resultado "++ (show money2));
+          if money2 < 0 then (putStrLn "Fin") else (play machine gen2 money2)
+       };  
+    }
+}

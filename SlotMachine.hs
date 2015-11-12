@@ -1,3 +1,4 @@
+-- Integrantes "Rodrigo Morgavi-Martin Noya-Nicolas Placeres-Gonzalo Sosa"
 module SlotMachine(SlotMachine, normalizeSymbols, randomGrid, lines2Indexes, matchesPattern, betResult) where
 import Prelude hiding (lines)
 import System.Random
@@ -184,6 +185,29 @@ getPayments slot (line:other_lines)
         patterns = orderPayments (pays slot)
         (gotMatch, payment) = matchesAnyPattern slot patterns line 
 
+--------------------------------
+
+allMatchingPayments :: SlotMachine -> [String] -> [String]
+allMatchingPayments _ [] = []
+allMatchingPayments slot (line:other_lines)
+    | gotMatch  = [stringLine++" paga $"++show valueLine] ++ allMatchingPayments slot other_lines
+    | otherwise = allMatchingPayments slot other_lines
+    where
+        patterns = orderPayments (pays slot)
+        (gotMatch, stringLine, valueLine) = matchesWhichPattern slot patterns line 
+
+-- Returns the string that matches any of the paying patterns
+matchesWhichPattern :: SlotMachine -> [(String,Double)] -> String -> (Bool, String, Double)
+matchesWhichPattern _ [] _ = (False, "", 0)
+matchesWhichPattern slot patterns line
+    | matchesPattern slot line pattern = (True, pattern, value)
+    | otherwise = matchesWhichPattern slot pList line
+    where
+        (pattern, value) = head patterns
+        pList = tail patterns
+
+--------------------------------
+
 getSpreadPayment :: [(Char,Int,Double)] -> String -> Int
 getSpreadPayment [] _ = 0
 getSpreadPayment spreadList grid
@@ -319,10 +343,19 @@ play machine gen money = do
     putStr "Apuesta por linea: ";
     bet <- (readLn :: IO Int);
     let (grid, gen2) = randomGrid gen machine in do {
-       prettyGrid grid;
-       let money2 = money + (betResult machine grid lineas bet) in do {
-          putStrLn ("Resultado "++ (show money2));
-          if money2 < 0 then (putStrLn "Fin") else (play machine gen2 money2)
-       };  
+        prettyGrid grid;
+        let money2 = money + (betResult machine grid lineas bet) in do {
+            printLinesWon $ allMatchingPayments machine $ take lineas $ getAllLines grid $ lines2Indexes $ lines slotMachine1;
+            putStrLn ("Costo de la apuesta: " ++ (show (lineas*bet) ));
+            putStrLn ("Ganancia neta: " ++ (show (betResult machine grid lineas bet)));
+            putStrLn ("Resultado "++ (show money2));
+            if money2 < 0 then (putStrLn "Fin") else (play machine gen2 money2)
+        };  
     }
+}
+
+printLinesWon [] = do { return (); }
+printLinesWon (s:st) = do {
+    putStrLn ("Linea: " ++ s);
+    printLinesWon st;
 }
